@@ -1,0 +1,10 @@
+For the **Lax-Friedrichs** scheme we derive:
+\begin{equation*}
+    e_n = - \frac{\Delta x^2}{2\Delta t}(1-c^2)u_{xx} + o(\Delta x^2)
+\end{equation*}
+The accuracy is still of the first order, but the Courant number is now squared. The scheme is then stable for $-1 < c < 1$.
+
+and the **Lax-Friedrichs** scheme:
+\begin{equation*}
+    u^{n+1}_i = \frac{1}{2}(u^n_{i+1} + u^n_{i-1}) - \frac{a \Delta t}{2\Delta x}(u^n_{i+1} - u^n_{i-1}) \quad \textrm{with} \quad \sigma = \frac{\Delta x}{a \Delta t} \quad \textrm{(Lax-Friedrichs)}
+\end{equation*}

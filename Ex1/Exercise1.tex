@@ -1,0 +1,471 @@
+\documentclass{report}
+
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{amsmath}
+\usepackage{float}
+\usepackage{enumitem}
+
+
+\title{Your Report Title}
+\author{Roberto Lucchesi}
+\date{\today}
+
+\geometry{
+  left=2cm,
+  right=2cm,
+  top=3cm,
+  bottom=3cm,
+}
+\begin{document}
+
+\maketitle
+
+\chapter*{Introduction}
+In this report we're going to analize the behavior of the upwind scheme for the solution
+of hyperbolic equations. We're going to test the scheme on three different initial
+conditions, a top hat function, a triangular function and a sine function, to observe
+the behavior of the scheme with different regularity of the initial condition.
+We're going to test the scheme with different Courant numbers to observe the effect of
+the speed of the signal on the solution.\\\\
+
+The report is structured as follows:
+\begin{itemize}
+    \item In the first chapter we're going to introduce the mathematical background of the problem,
+          defining the hyperbolic equations and the upwind scheme, and its convergence to the solution through the Courant number.
+    \item In the second chapter we're going to present the implementation of the upwind scheme
+          and the results of the tests on the three initial conditions.
+    \item In the third chapter we're going to test the effect of the Courant number on the solution.
+\end{itemize}
+\chapter*{Mathematical Background}
+\subsection*{Hyperbolic equations}
+
+A generic system of the form:
+\begin{equation*}
+    U_t + A(U)U_x + BU = F(x,t)
+\end{equation*}
+
+where:
+
+\begin{itemize}
+    \item $U(x,t) \in R^k$
+    \item $A$ and $B \in R^{k\times k}$
+    \item $F(x,t): R^{k} \rightarrow R^k$
+\end{itemize}
+
+
+is said to be hyperbolic. \\
+
+We are interested in the analysis of systems where
+\textbf{B = 0}, \textbf{F(x,t) = 0} and \textbf{A} is diagonizable with real eigenvalues. In such cases, the system is decoupled and formed by *k* scalar equations.
+Infact, if \textbf{A} is diagonizable it exist a matrix \textbf{P} such that:
+\begin{equation*}
+    PAP^{-1} = \lambda_iI = \Lambda
+\end{equation*}
+and by sobstituting $ W = PU$ we can rewrite:
+\begin{equation*}
+    W_t + \Lambda W_x = 0
+\end{equation*}
+representing a decoupled set of \textbf{k} scalar equations. For such systems the $\lambda_i$ are called \textbf{characteristics velocities} of the system.
+
+The interpretation of those velocities are more evident when k = 1.
+The single scalar hyperbolic equation in the form
+\begin{equation*}
+    u_t + au_x = 0   \quad \textrm{with} \quad u(x,0) = u_0(x)
+\end{equation*}
+
+The solution of the initial value problem for such equation is of the form
+\begin{equation*}
+    u(x,t) = u_0(x-at)
+\end{equation*}
+
+a traslation of the initial condition on the right if $a>0$ (\textbf{upwind}) on the left if $a<0$ (\textbf{downwind}) with a velocity **a**. We can identify the straight line of equation
+$ \xi = x - at$ where:
+\begin{equation*}
+    u(x,t) = u_0(\xi) = \; \textrm{const along} \;\xi = x - at
+\end{equation*}
+Meaning that, if we have a given initial state $u_0(x)$, to retrieve the solution at a time t we just need to follow the characteristic lines.\\
+Hyperbolic equations are useful for us engineers because they describe a wave-like phenomenon, a perturbation in the initial condition
+propagates along the space-time with a finite velocity \textbf{a}, traveling along the characteristic lines.\\
+This special form also allows use to drop any request on the continuity of $u_0(x)$ and its derivatives, allowing us to solve the problem in a weak sense.
+
+
+
+
+\subsection*{Transport equation}
+
+The Burgers equation is a simple example of a hyperbolic equation. It is a scalar equation that modelizes a convective-diffusive phenomenon
+of the form:
+\begin{equation*}
+    u_t + a(u)u_x - \nu u_{xx} = 0
+\end{equation*}
+where a(u) is the convective speed (or transport speed) and $\nu$ is the cinematic viscosity (or diffusion coefficient).\\
+We're interested in the non-viscous linear model, so we consider a = cost and $\nu$ = 0. We can then rewrite the equation as:
+\begin{equation}
+    u_t + au_x = 0
+    \label{hyp}
+\end{equation}
+also called, the transport equation.\\
+For this kind of problem, we only need one boundary condition, with the caveat that the support of \textbf{u} must be compact. Such boundary condition can be expressed as:
+\begin{equation*}
+    u(0, t) = 1 \quad \textrm{or} \quad u_x(0, t) = 0
+\end{equation*}
+
+%% NUMERICAL METHODS
+\subsubsection*{Numerical methods}
+We're going to need some numerical method to solve the problem in a discretized domain. In order to do that, we need to first define how the domain is discretized.
+For the spatial domain, we consider a uniform grid with a step $\Delta x$ and we define the nodal points of the grid as:
+\begin{equation*}
+    x_i = i\Delta x \quad \textrm{with} \quad i = 0, 1, 2, ..., N-1
+\end{equation*}
+For the temporal domain, the timestep $\Delta t$ is assumed constant throughout the simulation.\\\\
+The solution of the propagation of one node of the initial condition $u(x_i, 0) = u_0(x_i)$ for a time $\tau = \Delta t$, is given by:
+\begin{equation*}
+    u(x_i, \tau) = u(x_i - a\tau, 0)
+\end{equation*}
+If we assume that $a\tau < \Delta x$, meaning that $u(x_i - a\tau, 0)$ is within the node $x_{i-1}$ and $x_{i}$ on the *x* axis, we can linearly interpolate between these two known solutions to retrieve
+the value of $u(x_i, \tau)$.
+The interpolation is done on the segment containing the abscissa, and for the two adiacent intervals we can build the slope, function of a parameter $\mathbf{\sigma}$ $\in$ [-1,1] as:
+\begin{equation*}
+    \Delta u = \frac{1+\sigma}{2}\Delta_{i-\frac{1}{2}} u - \frac{1-\sigma}{2}\Delta_{i+\frac{1}{2}} u
+\end{equation*}
+with
+\begin{equation*}
+    \Delta_{i-\frac{1}{2}} u = \frac{u_{i} - u_{i-1}}{\Delta x} \quad \textrm{and} \quad \Delta_{i+\frac{1}{2}} u = \frac{u_{i+1} - u_{i}} {\Delta x}
+\end{equation*}
+The slope is then used to interpolate the value of $u(x_i, \tau)$ as:
+\begin{equation*}
+    u(x) = u_i + \Delta u(x - x_i) \quad \textrm{with} \quad x \in [x_{i-1}, x_{i+1}]
+\end{equation*}
+By solving the equation for $x = x_i -a\tau$ we find:
+\begin{equation*}
+    u(x_i, \tau) = u^0_i - a\tau \Delta u^0
+\end{equation*}
+And in a more general form, between two time steps $t^n$ and $t^{n+1}$, such that  $t^{n+1} = t^n + \Delta \tau$ we can write:
+\begin{equation*}
+    u^{n+1}_i = u^n_i - a \tau \Delta u^n
+\end{equation*}
+By choosing an adequate value for $\sigma$ we can obtain different schemes for the interpolation. The schemes of interest are the \textbf{upwind}(\textbf{downwind}) scheme
+\begin{align*}
+     & u^{n+1}_i =  u^n_i - \frac{a \Delta t}{\Delta x}(u^n_j - u^n_{j-1}) \quad \textrm{with} \quad \sigma = 1 \quad \textrm{(Upwind)}    \\
+     & u^{n+1}_i =  u^n_i - \frac{a \Delta t}{\Delta x}(u^n_{j+1} - u^n_j) \quad \textrm{with} \quad \sigma = -1 \quad \textrm{(Downwind)} \\
+\end{align*}
+The value $c = a\frac{\Delta t}{\Delta x}$ is called \textbf{Courant number} and it represents the ratio between the speed of the signal and the "speed" of the grid. This coefficient will be used to determine the stability of the scheme.
+Asking this coefficient to be within 0 and 1 assures that the signal does not propagate faster than the grid, performing an interpolation between $u^n_j$, $u^n_{j-1}$ and $u^n_{j+1}$.
+%% STABILITY OF THE SCHEME
+\subsection*{Courant number and stability of the scheme}
+To determine if the aproximate solution we compute is good enough to represent the exact solution we need to evaluate the \textbf{convergency} of the scheme to the real solution.
+That is, if the global error:
+\begin{equation*}
+    \| \varepsilon(U^n, u^n, a, \Delta x, \Delta t) \| \rightarrow 0 \quad \textrm{for} \quad \Delta x, \Delta t \rightarrow 0
+\end{equation*}
+Without going too deep into the mathematical details, several theorems like the \textbf{Lax-Richtmyer theorem} assure us that for linear problem as in (\ref*{hyp}) the scheme is convergent if it is \textbf{stable} and \textbf{consistent}.
+This proof of convergency works both ways, so if the scheme is not stable it cannot converge to the solution.\\\\
+We basically need to prove that:
+\begin{equation*}
+    \varepsilon^{n+1} = -\tau e^n +\tau S\varepsilon^n
+\end{equation*}
+with
+\begin{itemize}
+    \item $\epsilon^n$ the truncation error at step n, must tend to 0 for $\Delta x, \Delta t \rightarrow 0$ to assure \textbf{consistency}.
+    \item $S$ an operator that must not amplify previous step errors, so it shall be bounded to assure \textbf{stability}.
+\end{itemize}
+\subsubsection*{Consistency - Approximation error}
+With the discretization of the domain we inevitably introduce an error on the solution. We need to evaluate the truncation error $\epsilon$ and assure that
+\begin{equation*}
+    \epsilon \rightarrow 0 \quad \textrm{for} \quad \Delta x, \Delta t \rightarrow 0
+\end{equation*}
+After several steps of derivation, we can find that the truncation error for the \textbf{Upwind} scheme is:
+\begin{equation*}
+    \epsilon_n = -a \frac{\Delta x}{2}(1 - c)u_{xx} + o(\Delta x^2)
+\end{equation*}
+So the scheme has an accuracy at the first order. The coefficient that drives the sign of the error is the \textbf{(1 - c)} term.
+If the coefficient multipling the second derivative is positive, an anti-diffusive phenomenon is present, meaning that the scheme amplifies the initial solution.
+We want a dissipative scheme, so we need to assure that:
+\begin{equation*}
+    (1 - c) > 0 \quad \textrm{that is} \quad 0 < c < 1
+\end{equation*}
+For the \textbf{Downwind} scheme we derive:
+\begin{equation*}
+    \epsilon = a \frac{\Delta x}{2}(1 + c)u_{xx} + o(\Delta x^2)
+\end{equation*}
+The Courant number is now negative being $a < 0$. The scheme is stable for $-1 < c < 0$.
+This analysis is exact for problems with a regular $u_0(x)$, but in the case of discontinuities, the convergency is inferior thus the
+truncation error affects the solution more. The Courant number must be chosen carefully to assure the stability of the scheme.
+
+\subsubsection*{Stability}
+To check for the stability, we need to check that
+\begin{equation*}
+    \| u^{n+1}_j \| \leq \| u^n_j \|
+\end{equation*}
+for an adequate norm. By picking the $L_1$ norm, defined as:
+
+\begin{equation*}
+    L_1\; : \; \| u \|_1 = \sum_{j=1}^{N} |u_j|
+\end{equation*}
+Substituting for the upwind method we find:
+\begin{equation*}
+    \sum_{j=1}^{N} |u^{n+1}_j| = \sum_{j=1}^{N} |(1-c)u^n_j + cu^n_{j-1}| \leq \sum_{j=1}^{N} (1-c)|u^n_j| + c|u^n_{j-1}|
+\end{equation*}
+last term valid because $ 0 < c < 1$. By using the useful property that the solution only depends on its initial value, we can write:
+\begin{equation*}
+    \sum_{j=1}^{N} |u^{n+1}_j| \leq \sum_{j=1}^{N} |u^n_j|
+\end{equation*}
+resulting verified the stability. The same analysis can be done for the downwind scheme, with the only difference that the Courant number is negative.
+So we can now assure that the scheme is stable and convergent, and the solution we compute is a good approximation of the real solution of the hyperbolic equation in .. \\\\
+The $L_1$ norm gives us also a good indicator of the goodness of the algorithm. Infact we now know that this norm shall remain constant for each temporal step.\\\\
+Another useful norm that will get computed is the \textbf{Total Variation} of the solution, defined as:
+\begin{equation*}
+    TV\; : \sum_{j=1}^{N} |u_j - u_{j-1}|
+\end{equation*}
+That measures, as its name says, the variation of the solution along the grid. This norm is useful to check the diffusion of the solution, and to check the dissipative property of the scheme to eliminate discontinuities in the solution.
+
+\chapter*{Implementation and results}
+\section*{Study cases}
+We're going to test the upwind scheme on three different cases of initial conditions:
+\begin{itemize}
+    \item A top hat function
+    \item A triangular function
+    \item A sine function
+\end{itemize}
+Those are chosen to test the scheme with several conditions on regularity and continuity of the initial condition.
+Grid dimension and temporal step are defined as:
+\begin{itemize}[label={}]
+    \item $\Delta x = 0.01$
+    \item $\Delta t = 0.005$
+    \item a = 1
+\end{itemize}
+so that the Courant number is $c = 0.5$.\\\\
+Each disturbance has length L = 1 and is propagated for 2000 steps, or 10s in real time.
+\subsubsection*{Top hat function}
+The top hat function is defined as:
+\begin{equation*}
+    u(x,0) = \begin{cases}
+        2 \quad \textrm{if} \quad 1 \leq x \leq 2 \\
+        1 \quad \textrm{elsewhere}
+    \end{cases}
+\end{equation*}
+This function presents a jump discontinuity, thus not $C^0$ at $x = 1$ and $x = 2$, where the slope is undefined.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{Images/top_hat.png}
+    \caption{Top hat function}
+    \label{fig:top_hat}
+\end{figure}
+\subsubsection*{Triangular function}
+The triangular function is defined as:
+\begin{equation*}
+    u(x,0) = \begin{cases}
+        2x - 1 \quad \textrm{if} \quad 1 \leq x \leq \frac{3}{2} \\
+        -2x+5 \quad \textrm{if} \quad \frac{3}{2} \leq x \leq 2  \\
+        1 \quad \textrm{elsewhere}
+    \end{cases}
+\end{equation*}
+This function is $C^0$ but not $C^1$ as it presents a jump in the first derivative at $x = \frac{3}{2}$.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{Images/triang.png}
+    \caption{Triangular function}
+    \label{fig:triang}
+\end{figure}
+\subsubsection*{Sine function}
+The sine function is defined as:
+\begin{equation*}
+    u(x,0) = \begin{cases}
+        -\sin(\pi x/L) + 1 \quad \textrm{if} \quad 1 \leq x \leq 2 \\
+        1 \quad \textrm{elsewhere}
+    \end{cases}
+\end{equation*}
+This function is $C^{\infty}$ in its domain.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{Images/sine.png}
+    \caption{Sine function}
+    \label{fig:sine}
+\end{figure}
+\subsection*{Upwind scheme implementation}
+The upwind scheme is implemented in Python, using the numpy library for the array manipulation. The code is the following:
+\begin{verbatim}
+    def propagate(u, dx, dt, lb, a=1, n_steps=1):
+        c = a*dt/dx
+
+        if np.abs(c) > 1:
+            print(f"WARNING: CFL condition not met: {c}")
+        u_prop = np.zeros((n_steps, len(u)))
+        u_prop[0,:] = u
+        for i in range(1, n_steps):
+            u_new = u_prop[i,:]
+            u_new[0] = lb
+            for j in range(1,len(u)):
+                u_new[j] = u[j] - c*(u[j] - u[j-1])
+            u = u_new
+        return u_prop
+\end{verbatim}
+We can now test the scheme on the three cases we defined before.
+\subsection*{Results}
+\subsubsection*{Top hat}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{Images/Top hat - c = 0.5_prop.png}
+    \caption{Top hat function after 10 steps}
+    \label{fig:top_hat_res}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{Images/Top hat_norms.png}
+    \caption{Total variation of the top hat function}
+    \label{fig:top_hat_TV}
+\end{figure}
+From the top hat propagation, we observe how the flat top is diffused.
+The complete diffusions, meaning the elimination of every discontinuity,
+requires several steps. We can also see how the total variation is constant
+until the top hat is unflattened, then it starts to decrease. We infact note that in the top flat part, the second derivative is null, so no diffusion of the peak
+occurs until the top hat is completely flattened.
+\subsubsection*{Wizard hat}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{Images/Wizard hat - c = 0.5_prop.png}
+    \caption{Top hat function after 10 steps}
+    \label{fig:wiz_hat_res}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{Images/Wizard hat_norms.png}
+    \caption{Total variation of the top hat function}
+    \label{fig:wiz_hat_TV}
+\end{figure}
+From the wizard hat propagation instead, the peak is instantly diffused in the first step. We note that
+the total variation in this case is almost vertical at the start, infact the second derivative at the top
+tends to infinity, being a cusp. The diffusion of the peak is then immediate, and the total variation decreases very rapidly.
+\subsubsection*{Sine function}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{Images/Sine - c = 0.5_prop.png}
+    \caption{Sine function after 10 steps}
+    \label{fig:sine_res}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{Images/Sine_norms.png}
+    \caption{Total variation of the sine function}
+    \label{fig:sine_TV}
+\end{figure}
+\subsection*{Comments on the results}
+By observing the results, it is clear how the dissipative "speed" of the scheme is related to the reguarity of the function,
+in particular on the second derivative.\\\\
+The \textbf{top hat} wont start to diffuse its peak until this is unflattened, meaning that we need to wait for the second derivative to be not null to
+start the peak diffusion. This is evident in the total variation plot, where the value is constant until the peak is unflattened.\\\\
+The \textbf{wizard hat} instead, with its cusp at the top, starts to diffuse the peak immediately, and the total variation decreases very rapidly, almost vertically at the beginning.
+This because the second derivative tends to infinity at the peak (infinite speed of change of the first derivative where a jump is present)\\\\
+The \textbf{sine function} instead, being $C^{\infty}$, has a smooth second derivative, and the diffusion of the peak is immediate, but not as immediate as the wizard hat. We can infact observe the total variation
+decrease almost linearly.
+\section*{Effect of the Courant number}
+We can now test the effect of the Courant number on the solution, using the upwind scheme on the sine function, due to its regularity, with different Courant numbers.
+We're going to use the not yet introduced simmetric property of the Courant number about the value 0.5, so we test several values of c in the range [0.1,0.4].\\
+In order to perform a sensible analysis, we fix the number of steps and timestep, fixing then the total time of the simulation.\\
+We choose:
+\begin{itemize}[label={}]
+    \item $\Delta t = 0.005$
+    \item a = 1
+    \item n\_steps = 2000
+\end{itemize}
+then, $t_{tot}$ = 10s and the grid is defined as:
+\begin{equation*}
+    \Delta x = \frac{\Delta t}{c}
+\end{equation*}
+% Place two images side by side
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.45\textwidth]{Images/Sine - c = 0.1_prop.png}
+    \includegraphics[width=0.45\textwidth]{Images/Sine - c = 0.2_prop.png}
+    \caption{Sine function after 10 steps with c = 0.1 and c = 0.2}
+    \label{fig:sine_res_c}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.45\textwidth]{Images/Sine - c = 0.3_prop.png}
+    \includegraphics[width=0.45\textwidth]{Images/Sine - c = 0.4_prop.png}
+    \caption{Sine function after 10 steps with c = 0.3 and c = 0.4}
+    \label{fig:sine_res_c2}
+\end{figure}
+
+Without introducing the Von Neumann stability analysis, but just by observing the results, we can note
+how the signal propagates faster and diffuses more as the Courant number approaches $\frac{1}{2}$.
+
+\chapter*{Nonlinear transport equation}
+\section*{Euler equations}
+We now put on the big boy pants and we start approaching the theory to the real world.
+We're going to analyze the \textbf{Euler equations}, a system of hyperbolic equations that modelize the flow of an ideal inviscid fluid, under the hypotesis of isentropicity.
+\subsubsection*{Mass conservation}
+The first equation of the system is the mass conservation equation, that is:
+\begin{equation*}
+    \frac{D\rho}{Dt} + \rho \nabla \cdot u = 0
+\end{equation*}
+By using the Reynolds trasport theorem, we can rewrite the equation as:
+\begin{equation*}
+    \rho_t + u\rho_x + \rho u_x = 0
+\end{equation*}
+\subsubsection*{Momenta conservation}
+The second equation of the system is the momenta conservation equation, that is:
+\begin{equation*}
+    \rho\frac{Du}{Dt} + \nabla p = 0
+\end{equation*}
+that can be rewritten as:
+\begin{equation*}
+    \rho (u_t + u u_x) + p_x = 0
+\end{equation*}
+
+\subsubsection*{Energy conservation}
+For an isentropic fluid, the entropy conservation states that:
+\begin{equation*}
+    \frac{Ds}{Dt} = \frac{Dp}{Dt} - a^2 \frac{D\rho}{Dt} = 0
+\end{equation*}
+where $s$ is the entropy of the fluid, $a$ is the speed of sound and $p$ is the pressure. We can rewrite the equation as:
+\begin{equation*}
+    p_t + u p_x - a^2 \rho u_x = 0
+\end{equation*}
+
+
+\subsubsection*{Euler equations}
+We can now write the system of equations as:
+\begin{equation*}
+    \begin{cases}
+        \rho_t + u\rho_x + \rho u_x = 0     \\
+        u_t + u u_x + \frac{1}{\rho}p_x = 0 \\
+        p_t + u p_x + \rho a^2  u_x = 0
+    \end{cases}
+\end{equation*}
+We can rewrite the system in a matrix form with:
+\begin{equation*}
+    U =
+    \begin{bmatrix}
+        \rho \\
+        u    \\
+        p
+    \end{bmatrix}
+    \quad
+    A =
+    \begin{bmatrix}
+        u & \rho     & 0              \\
+        0 & u        & \frac{1}{\rho} \\
+        0 & \gamma p & u
+    \end{bmatrix}
+\end{equation*}
+where $\gamma$ is the adiabatic index of the fluid. The system can be rewritten in an hyperbolic form as:
+\begin{equation*}
+    U_t + A(U)U_x = 0
+\end{equation*}
+By solving the eigenvalue problem on A(U), we can find three distinct and real eigenvalues, that are:
+\begin{equation*}
+    \lambda_1 = u - a \quad \lambda_2 = u \quad \lambda_3 = u + a
+\end{equation*}
+These are the characteristic velocities of the system, and they represent the speed of the signal in the fluid. The system is hyperbolic, and the solution of the system is a wave-like phenomenon, where the perturbation in the fluid propagates with a finite velocity.
+By searching for the eigenvectors, we define the wave variables as:
+\begin{equation*}
+    d\sigma_1 = dp - \rho a du \quad \textrm{along u-a}
+    d\sigma_2  = d
+\end{equation*}
+
+\end{document}
