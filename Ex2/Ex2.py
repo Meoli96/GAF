@@ -19,6 +19,19 @@ _x = np.arange(x_start, x_end, dx)
 delta_x_ = 1 # Interval of the "disturbance"
 t_start = 0
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 # %%
 def LFx2(u, dx, dt, boundary_conditions, a=1, n_steps=1):
     # Propagate the disturbance
