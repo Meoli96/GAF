@@ -15,7 +15,7 @@ def Flux(W, gamma):
 
         u = rho_u / rho
         p = (gamma - 1) * (E - 0.5 * rho * u ** 2)
-
+        # Could be done without converting back to primitives
         F[i,0] = rho * u
         F[i,1] = rho * u ** 2 + p
         F[i,2] = u * (E + p)
@@ -63,8 +63,8 @@ def W2U(W, gamma):
     
     return U
 
-def lfx2_step(U_grid, dx, c, gamma = 1.4):
-    # This function performs a single temporal step of the Lax-Friedrichs scheme
+def godunov_step(U_grid, dx, c, gamma = 1.4):
+    # This function performs a single temporal step of the Godunov scheme
     # on a 2D array U_grid, with grid spacing dx, and Courant number c.
     # The timestep is computed from the Courant number and the CFL condition
 
@@ -79,48 +79,41 @@ def lfx2_step(U_grid, dx, c, gamma = 1.4):
     # W = [rho, rho*u, E]
     # F = [rho*u, rho*u^2 + p, u*(E + p)]
 
+    # Godunov scheme:
+    # U_n+1 = U_n - dt/dx * (F(U_n+1/2) - F(U_n-1/2))
+    # HLL flux: F(U_n+1/2) = (S_L * F_L + S_R * F_R - S_L * S_R * (U_R - U_L)) / (S_R - S_L)
+    # S_L = min(u_L - a_L, u_R - a_R)
+    # S_R = max(u_L + a_L, u_R + a_R)
 
+    # Compute the conserved variables W = [rho, rho*u, E]
+   
+   
     n_samples = len(U_grid)
     # Add ghost cells to the left and right of the grid
     U_grid_gc = np.concatenate((U_grid[1].reshape(1, -1), U_grid, U_grid[-1].reshape(1, -1)), axis = 0)
 
     W_grid_gc = U2W(U_grid_gc, gamma = gamma)
-    a_grid_gc = np.zeros((n_samples + 2, 1))
-    
-    
-    a_grid_gc = np.sqrt(gamma * U_grid_gc[:,2] / U_grid_gc[:,0]) # a = sqrt(gamma * p / rho)
-                                                               # Speed of sound
-    Lp = U_grid_gc[:,1] + a_grid_gc # Eigenvalues on u + a 
-    max_Lp = np.max(Lp)
-    # Compute the timestep
-    dt = c * dx / max_Lp
-    
-    # Compute the fluxes
+    a_grid_gc = np.sqrt(gamma * U_grid_gc[:,2] / U_grid_gc[:,0])
+
+    # Compute the HLL flux - RICONTROLLARE
     F_grid_gc = Flux(W_grid_gc, gamma = gamma)
-    
-    # Prediction step
-    W_half_p = np.zeros_like(U_grid)
-    W_half_m = np.zeros_like(U_grid)
+    F_L = F_grid_gc[:-1]
+    F_R = F_grid_gc[1:]
+    S_L = np.minimum(U_grid_gc[1:,1] - a_grid_gc[1:], U_grid_gc[:-1,1] - a_grid_gc[:-1])
+    S_R = np.maximum(U_grid_gc[1:,1] + a_grid_gc[1:], U_grid_gc[:-1,1] + a_grid_gc[:-1])
+    F_HLL = (S_L * F_L + S_R * F_R - S_L * S_R * (U_grid_gc[1:] - U_grid_gc[:-1])) / (S_R - S_L)
 
-    for i in range(n_samples):
-        W_half_p[i] = 0.5 * (W_grid_gc[i+2] + W_grid_gc[i+1]) - 0.5 * dt / dx * (F_grid_gc[i+2] - F_grid_gc[i+1])
-        W_half_m[i] = 0.5 * (W_grid_gc[i+1] + W_grid_gc[i]) - 0.5 * dt / dx * (F_grid_gc[i+1] - F_grid_gc[i])
-    
-    # Compute the fluxes at the half-steps
-    F_half_p = Flux(W_half_p, gamma = gamma)
-    F_half_m = Flux(W_half_m, gamma = gamma)
+    # Compute the timestep
+    dt = c * dx / np.max(np.abs(U_grid_gc[:,1]) + a_grid_gc)
+    U_grid_dt = np.zeros_like(U_grid)
+    # Perform the Godunov step
+    U_grid_dt[...] = U_grid - dt / dx * (F_HLL[1:] - F_HLL[:-1])
+
+    return U_grid_dt, dt
+
 
     
-    # Correction step
-    W_grid_dt = np.zeros_like(U_grid)
-    W_grid_dt[i] = (W_half_m + W_half_p)/2 - dt / (2*dx) * (F_half_p - F_half_m)
-    
-    # Convert the conserved variables back to the primitive variables
  
-    U_grid_dt = W2U(W_grid_dt, gamma = gamma)
-    a_grid =  a_grid_gc[1:-1]
-    
-    return U_grid_dt, a_grid , dt
 
 
 def resize_array_mean(array, dt_array, T):
@@ -134,8 +127,8 @@ def resize_array_mean(array, dt_array, T):
 
     return array
 
-def LFx2(U0, dx, c, T, gamma = 1.4):
-    # This function performs the Lax-Friedrichs scheme on a 2D array U0 of
+def godunov(U0, dx, c, T, gamma = 1.4):
+    # This function performs the Godunov scheme on a 2D array U0 of
     # initial conditions, with grid spacing dx, Courant number c, and final time T.
     # The scheme is run until the final time T is reached, and the solution is
     # returned as a 3D array of shape (n_steps, n_samples, 3), where n_steps is the
@@ -159,7 +152,7 @@ def LFx2(U0, dx, c, T, gamma = 1.4):
     ## Due to the timestep being variable, an initial allocation is 
     #   attempted with a guessed timestep from the initial conditions.
     #   If the array fills, a mean of the timesteps is performed and 
-    #   a resize is performed based on how much far away we are from T
+    #   a resize is performed based on steps left
 
     # Compute for the first time the speed of sound and the timestep required, then allocate accordingly
     a = np.sqrt(gamma * U_grid[:,2] / U_grid[:,0]) # a = sqrt(gamma * p / rho)
@@ -181,7 +174,7 @@ def LFx2(U0, dx, c, T, gamma = 1.4):
 
     # Simulation loop
     while (t_total < T):
-        U_grid, a_grid, dt = lfx2_step(U_grid, dx, c, gamma = gamma)
+        U_grid, a_grid, dt = godunov_step(U_grid, dx, c, gamma = gamma)
         t_total += dt
         U_grid_result[step_counter] = U_grid
         a_grid_result[step_counter] = a_grid.reshape(-1, 1) # Fucking numpy 
