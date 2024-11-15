@@ -117,8 +117,7 @@ def lfx2_step(U_grid, dx, c, gamma = 1.4):
         W_grid_dt[i] = (W_half_m[i] + W_half_p[i])/2 - dt / (2*dx) * (F_half_p[i] - F_half_m[i])
     
     # Convert the conserved variables back to the primitive variables
-        # Remove the ghost cells
-    W_grid_dt = W_grid_dt[1:-1] 
+ 
     U_grid_dt = W2U(W_grid_dt, gamma = gamma)
     a_grid =  a_grid_gc[1:-1]
     
@@ -187,7 +186,7 @@ def LFx2(U0, dx, c, T, gamma = 1.4):
         U_grid, a_grid, dt = lfx2_step(U_grid, dx, c, gamma = gamma)
         t_total += dt
         U_grid_result[step_counter] = U_grid
-        a_grid_result[step_counter] = a_grid
+        a_grid_result[step_counter] = a_grid.reshape(-1, 1) # Fucking numpy 
         dt_array[step_counter] = dt
         step_counter += 1
 

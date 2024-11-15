@@ -74,6 +74,22 @@ class Result:
             plt.savefig(image_path + self.title + "_norms" + ".png")
         
 
-     
+    def animate(self, fps: int = 60):
+        import matplotlib.pyplot as plt
+        import matplotlib.animation as animation
+
+        fig, ax = plt.subplots()
+        line, = ax.plot(self._x, self.u_prop[0,:])
+        ax.set_ylim(0, 3)
+        ax.set_xlim(0, 10)
+
+        def animate(i):
+            line.set_ydata(self.u_prop[i,:])
+            return line,
+
+        ani = animation.FuncAnimation(
+            fig, animate, frames=self.u_prop.shape[0], interval=1/fps
+        )
+        return ani
 
         
