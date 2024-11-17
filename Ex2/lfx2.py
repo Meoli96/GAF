@@ -1,8 +1,28 @@
 import numpy as np
 
 
+def assert_unphysicalU(U):
+    # This function checks if the primitive variables U = [rho, u, p] are physical
+    # and raises an error if they are not.
+    # U is a 2D array of shape (n_samples, 3), where each row is a sample
+    # of the primitive variables [rho, u, p].
 
+    if np.any(U[:,0] <= 0):
+        raise ValueError("Density is negative or zero")
+    if np.any(U[:,2] < 0):
+        raise ValueError("Pressure is negative")
 
+def assert_unphysicalW(W):
+    # This function checks if the conserved variables W = [rho, rho*u, E] are physical
+    # and raises an error if they are not.
+    # W is a 2D array of shape (n_samples, 3), where each row is a sample
+    # of the conserved variables [rho, rho*u, E].
+
+    if np.any(W[:,0] <= 0):
+        raise ValueError("Density is negative or zero")
+    if np.any(W[:,2] < 0):
+        raise ValueError("Energy is negative")
+    
 def Flux(W, gamma):
     # This function computes the flux vector F = [rho*u, rho*u^2 + p, u*(E + p)] for a 2D array W, where gamma is
     # the ratio of specific heats.
@@ -39,6 +59,9 @@ def U2W(U, gamma ):
         W[i,0] = rho # Density
         W[i,1] = rho * u # Momentum
         W[i,2] = p / (gamma - 1) + 0.5 * rho * u ** 2 # Energy
+        if W[i,2] < 0:
+            print("Negative energy detected")
+            W[i,2] = 0
     
     return W
 
@@ -56,6 +79,9 @@ def W2U(W, gamma):
 
         u = rho_u / rho
         p = (gamma - 1) * (E - 0.5 * rho * u ** 2)
+        if p < 0:
+            print("Negative pressure detected")
+            p = 0
 
         U[i,0] = rho
         U[i,1] = u
@@ -90,7 +116,7 @@ def lfx2_step(U_grid, dx, c, gamma = 1.4):
     
     a_grid_gc = np.sqrt(gamma * U_grid_gc[:,2] / U_grid_gc[:,0]) # a = sqrt(gamma * p / rho)
                                                                # Speed of sound
-    Lp = U_grid_gc[:,1] + a_grid_gc # Eigenvalues on u + a 
+    Lp = abs(U_grid_gc[:,1]) + a_grid_gc # Eigenvalues on u + a 
     max_Lp = np.max(Lp)
     # Compute the timestep
     dt = c * dx / max_Lp
@@ -102,10 +128,10 @@ def lfx2_step(U_grid, dx, c, gamma = 1.4):
     W_half_p = np.zeros_like(U_grid)
     W_half_m = np.zeros_like(U_grid)
 
-    for i in range(n_samples):
-        W_half_p[i] = 0.5 * (W_grid_gc[i+2] + W_grid_gc[i+1]) - 0.5 * dt / dx * (F_grid_gc[i+2] - F_grid_gc[i+1])
-        W_half_m[i] = 0.5 * (W_grid_gc[i+1] + W_grid_gc[i]) - 0.5 * dt / dx * (F_grid_gc[i+1] - F_grid_gc[i])
-    
+    # Compute the half-steps
+    W_half_p = 0.5 * (W_grid_gc[2:] + W_grid_gc[1:-1]) - 0.5 * dt / dx * (F_grid_gc[2:] - F_grid_gc[1:-1])
+    W_half_m = 0.5 * (W_grid_gc[1:-1] + W_grid_gc[:-2]) - 0.5 * dt / dx * (F_grid_gc[1:-1] - F_grid_gc[:-2])
+
     # Compute the fluxes at the half-steps
     F_half_p = Flux(W_half_p, gamma = gamma)
     F_half_m = Flux(W_half_m, gamma = gamma)
@@ -113,7 +139,7 @@ def lfx2_step(U_grid, dx, c, gamma = 1.4):
     
     # Correction step
     W_grid_dt = np.zeros_like(U_grid)
-    W_grid_dt[i] = (W_half_m + W_half_p)/2 - dt / (2*dx) * (F_half_p - F_half_m)
+    W_grid_dt = (W_half_m + W_half_p)/2 - dt / (2*dx) * (F_half_p - F_half_m)
     
     # Convert the conserved variables back to the primitive variables
  
