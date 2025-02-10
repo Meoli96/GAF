@@ -1,7 +1,11 @@
 import numpy as np
 
-### Functions for the Lax-Friedrichs scheme 
+### Functions for the Lax-Friedrichs scheme with area variation
 
+###
+# Remove this line, 
+global A
+###
 def assert_unphysicalU(U):
     # This function checks if the primitive variables U = [rho, u, p] are physical
     # and raises an error if they are not.
@@ -23,23 +27,40 @@ def assert_unphysicalW(W):
         raise ValueError("Density is negative or zero")
     if np.any(W[:,2] < 0):
         raise ValueError("Energy is negative")
+    
 
-def Flux(W, gamma):
+def B(W, A, gamma):
+    # This function contains the source term for the momenta equation (-p*A_x)
+    # W is the conserved variables [rhoA, rho*uA, EA] E = rho*e + 0.5*rho*u^2
+    # Ai is the area at the cell interface
+    # gamma is the ratio of specific heats
+    B = np.zeros_like(W)
+    p = (gamma - 1) * (W[:,2] - 0.5 * W[:,1] ** 2 / W[:,0])
+
+    # Compute the mean pressure term
+    p_mean = 0.5 * (p[1:] + p[:-1])
+    # Now finite difference with the area term
+    B[:,1] = p_mean * (A[1:] - A[:-1])
+    
+    return B
+    
+def Flux(W, Ai, gamma):
     # This function computes the flux vector F = [rho*u, rho*u^2 + p, u*(E + p)] for a 2D array W, where gamma is
     # the ratio of specific heats.
     F = np.zeros_like(W)
 
-    rho = W[:,0]
-    rho_u = W[:,1]
-    E = W[:,2]
+    for i in range(len(W)):
+        rho = W[i,0]
+        rho_u = W[i,1]
+        E = W[i,2]
 
-    u = rho_u / rho
-    p = (gamma - 1) * (E - 0.5 * rho * u ** 2)
+        u = rho_u / rho
+        p = (gamma - 1) * (E - 0.5 * rho * u ** 2)
 
-    F[:,0] = rho * u
-    F[:,1] = rho * u ** 2 + p
-    F[:,2] = u * (E + p)
-    
+        F[i,0] = rho * u * Ai
+        F[i,1] = (rho * u ** 2 + p) * Ai
+        F[i,2] = u * (E + p) * Ai
+
     return F
 
 ## U is the primitive variables [rho, u, p], 
@@ -125,6 +146,8 @@ def lfx2_step(U_grid, dx, c, gamma = 1.4):
     
     # Compute the fluxes
     F_grid_gc = Flux(W_grid_gc, gamma = gamma)
+    # Compute the source term
+    B_grid_gc = B(W_grid_gc, A, gamma = gamma)
     
     # Prediction step
     W_half_p = np.zeros_like(U_grid)
@@ -137,6 +160,10 @@ def lfx2_step(U_grid, dx, c, gamma = 1.4):
     # Compute the fluxes at the half-steps
     F_half_p = Flux(W_half_p, gamma = gamma)
     F_half_m = Flux(W_half_m, gamma = gamma)
+
+    # Compute the source term at the half-steps
+    B_half_p = B(W_half_p, A, gamma = gamma)
+    B_half_m = B(W_half_m, A, gamma = gamma)
 
     
     # Correction step

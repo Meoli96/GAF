@@ -7,19 +7,18 @@ def Flux(W, gamma):
     # This function computes the flux vector F = [rho*u, rho*u^2 + p, u*(E + p)] for a 2D array W, where gamma is
     # the ratio of specific heats.
     F = np.zeros_like(W)
+    
+    rho = W[:,0]
+    rho_u = W[:,1]
+    E = W[:,2]
 
-    for i in range(len(W)):
-        rho = W[i,0]
-        rho_u = W[i,1]
-        E = W[i,2]
+    u = rho_u / rho
+    p = (gamma - 1) * (E - 0.5 * rho * u ** 2)
 
-        u = rho_u / rho
-        p = (gamma - 1) * (E - 0.5 * rho * u ** 2)
-        # Could be done without converting back to primitives
-        F[i,0] = rho * u
-        F[i,1] = rho * u ** 2 + p
-        F[i,2] = u * (E + p)
-
+    F[:,0] = rho * u
+    F[:,1] = rho * u ** 2 + p
+    F[:,2] = u * (E + p)
+    
     return F
 
 ## U is the primitive variables [rho, u, p], 
@@ -86,6 +85,9 @@ def godunov_step(U_grid, dx, c, gamma = 1.4):
     # S_R = max(u_L + a_L, u_R + a_R)
 
     # Compute the conserved variables W = [rho, rho*u, E]
+
+    ### Paper link: 
+    # https://www.reading.ac.uk/maths-and-stats/-/media/project/uor-main/schools-departments/maths/documents/na-report-799.pdf
    
    
     n_samples = len(U_grid)
@@ -99,8 +101,8 @@ def godunov_step(U_grid, dx, c, gamma = 1.4):
     F_grid_gc = Flux(W_grid_gc, gamma = gamma)
     F_L = F_grid_gc[:-1]
     F_R = F_grid_gc[1:]
-    S_L = np.minimum(U_grid_gc[1:,1] - a_grid_gc[1:], U_grid_gc[:-1,1] - a_grid_gc[:-1])
-    S_R = np.maximum(U_grid_gc[1:,1] + a_grid_gc[1:], U_grid_gc[:-1,1] + a_grid_gc[:-1])
+    S_L = np.min(np.minimum(U_grid_gc[1:,1] - a_grid_gc[1:], U_grid_gc[:-1,1] - a_grid_gc[:-1]))
+    S_R = np.max(np.maximum(U_grid_gc[1:,1] + a_grid_gc[1:], U_grid_gc[:-1,1] + a_grid_gc[:-1]))
     F_HLL = (S_L * F_L + S_R * F_R - S_L * S_R * (U_grid_gc[1:] - U_grid_gc[:-1])) / (S_R - S_L)
 
     # Compute the timestep
@@ -109,7 +111,9 @@ def godunov_step(U_grid, dx, c, gamma = 1.4):
     # Perform the Godunov step
     U_grid_dt[...] = U_grid - dt / dx * (F_HLL[1:] - F_HLL[:-1])
 
-    return U_grid_dt, dt
+    a_grid = a_grid_gc[1:-1]
+
+    return U_grid_dt, a_grid, dt
 
 
     
@@ -198,3 +202,28 @@ def godunov(U0, dx, c, T, gamma = 1.4):
     dt_array = dt_array[:step_counter]
 
     return U_grid_result, a_grid_result, dt_array
+
+
+def riemman(UL, UR):
+    
+    if UL > UR:
+        # Shock wave solution
+
+        S = 0.5*(UL + UR)
+        if S > 0:
+            USTAR = UL
+        else:
+            USTAR = UR
+    else:
+        # Solution is a rarefaction wave, three cases:
+        if UL > 0:
+            # Right rarefaction wave
+            USTAR = UL
+        elif UR < 0:
+            # Left rarefaction wave
+            USTAR = UR
+        elif UL < 0 and UR > 0:
+            # Transonic rarefaction wave
+            USTAR = 0
+        
+    return USTAR
