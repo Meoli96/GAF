@@ -396,8 +396,8 @@ how the signal propagates faster and diffuses more as the Courant number approac
 
 \chapter*{Nonlinear transport equation}
 \section*{Euler equations}
-We now put on the big boy pants and we start approaching the theory to the real world.
-We're going to analyze the \textbf{Euler equations}, a system of hyperbolic equations that modelize the flow of an ideal inviscid fluid, under the hypotesis of isentropicity.
+We now start approaching the theory of the real world.
+We're going to analyze the \textbf{Euler equations}, a system of hyperbolic equations that modelize the flow of an ideal inviscid fluid in a monodimensional domain, under the hypotesis of isentropicity.
 \subsubsection*{Mass conservation}
 The first equation of the system is the mass conservation equation, that is:
 \begin{equation*}
@@ -462,10 +462,71 @@ By solving the eigenvalue problem on A(U), we can find three distinct and real e
     \lambda_1 = u - a \quad \lambda_2 = u \quad \lambda_3 = u + a
 \end{equation*}
 These are the characteristic velocities of the system, and they represent the speed of the signal in the fluid. The system is hyperbolic, and the solution of the system is a wave-like phenomenon, where the perturbation in the fluid propagates with a finite velocity.
-By searching for the eigenvectors, we define the wave variables as:
+\\
+The compatibility equations, that highlights the physical meaning of the system, are:
 \begin{equation*}
-    d\sigma_1 = dp - \rho a du \quad \textrm{along u-a}
-    d\sigma_2  = d
+ (p_t - \rho a u_t) + (u - a) (p_x - \rho a u_x) = 0
 \end{equation*}
+\begin{equation*}
+    (p_t - a^2 \rho_t) + u (p_x - a^2 \rho_x) = 0
+\end{equation*}
+\begin{equation*}
+    (p_t + \rho a u_t) + (u + a) (p_x + \rho a u_x) = 0
+\end{equation*}
+In a simple wave phenomenon, the perturbation propagates along only one of the characteristic directions.
+In the case of an entropy wave, along the u direction, the problem is solved by a linear transport ( $ s_t + u s_x = 0$, along $u = \frac{dx}{dt} =$ cost) with s = cost along u, while
+for a simple acoustic wave the problem is represented by the Riemman equation ($v_t + v v_x = 0$) with 
+the quantities $ a \pm \delta u$ as the Riemman invariants, that remains constant along the characteristic lines.\\
 
+\subsubsection{Integration method}
+To solve the system of equations, the Lax-Friedrichs two-step method is used, a predictor-corrector method.
+Defining the flux F as:
+\begin{equation*}
+    F(U) = \begin{bmatrix}
+        \rho u \\
+        \rho u^2 + p \\
+        u (E + p)
+    \end{bmatrix}
+\end{equation*}
+we can compute the state U at half time step n+$\frac{1}{2}$ at the interface between two cells j$\pm\frac{1}{2}$ as:
+\begin{equation*}
+    U^{n+\frac{1}{2}}_{j+\frac{1}{2}} = \frac{1}{2} (U^n_j + U^n_{j+1}) - \frac{\Delta t}{2\Delta x} (F(U^n_{j+1}) - F(U^n_j))
+\end{equation*}
+and then the state at time n+1 at the cell j is computed as:
+\begin{equation*}
+    U^{n+1}_j = \frac{U_{j+1/2}^{n+\frac{1}{2}} + U_{j-\frac{1}{2}}^{n+\frac{1}{2}}}{2} - \frac{\Delta t}{2\Delta x} (F(U_{j+\frac{1}{2}}^{n+\frac{1}{2}}) - F(U_{j-\frac{1}{2}}^{n+\frac{1}{2}}))
+\end{equation*}
+With respect to the upwind scheme, the courant number is also used but the time step is not fixed, computed as:
+\begin{equation*}
+    \Delta t = c \frac{\Delta x}{\lambda_{max}}
+\end{equation*}
+assuring that the signal does not propagate faster than the grid, and so the stability of the scheme.
+\section*{Test cases}
+In all the test cases, unless otherwise specified, the simulation is ran with the following properties:
+\begin{itemize}[label={}]
+    \item x = [0,10]
+    \item $\Delta x = 0.01$
+    \item $t_f$ = 5s
+    \item $\gamma$ = 1.4
+\end{itemize}
+
+\subsection*{Contact discontinuity}
+\subsection*{Expansion - Simple wave}
+\subsubsection{Subsonic expansion wave}
+The initial conditions for the subsonic expansion wave are:\\
+\begin{table*}[h]
+    \centering
+    \begin{tabular}{|c|c|c|c|}
+        \hline
+        & $\rho$ & $u$ & $p$ \\
+        \hline
+        Ahead & 1.4 & 0.0 & 1 \\
+        Behind & 0.585 & -0.8 & 0.295 \\ 
+        \hline
+    \end{tabular}
+\end{table*}
+The propagation of the primitive variables is shown in the following figures:
+
+\subsubsection*{Compression - Simple wave}
+\subsubsection*{Shock wave}
 \end{document}

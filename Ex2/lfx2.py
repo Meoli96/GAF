@@ -3,30 +3,34 @@ import numpy as np
 ### Functions for the Lax-Friedrichs scheme 
 
 def assert_unphysicalU(U):
-    # This function checks if the primitive variables U = [rho, u, p] are physical
-    # and raises an error if they are not.
-    # U is a 2D array of shape (n_samples, 3), where each row is a sample
-    # of the primitive variables [rho, u, p].
-
+    """
+    This function checks if the primitive variables U = [rho, u, p] are physical
+    and raises an error if they are not.
+    U is a 2D array of shape (n_samples, 3), where each row is a sample
+    of the primitive variables [rho, u, p].
+    """
     if np.any(U[:,0] <= 0):
         raise ValueError("Density is negative or zero")
     if np.any(U[:,2] < 0):
         raise ValueError("Pressure is negative")
 
 def assert_unphysicalW(W):
-    # This function checks if the conserved variables W = [rho, rho*u, E] are physical
-    # and raises an error if they are not.
-    # W is a 2D array of shape (n_samples, 3), where each row is a sample
-    # of the conserved variables [rho, rho*u, E].
-
+    """
+    This function checks if the conserved variables W = [rho, rho*u, E] are physical
+    and raises an error if they are not.
+    W is a 2D array of shape (n_samples, 3), where each row is a sample
+    of the conserved variables [rho, rho*u, E].
+    """
     if np.any(W[:,0] <= 0):
         raise ValueError("Density is negative or zero")
     if np.any(W[:,2] < 0):
         raise ValueError("Energy is negative")
 
 def Flux(W, gamma):
-    # This function computes the flux vector F = [rho*u, rho*u^2 + p, u*(E + p)] for a 2D array W, where gamma is
-    # the ratio of specific heats.
+    """
+    This function computes the flux vector F = [rho*u, rho*u^2 + p, u*(E + p)] for a 2D array W, where gamma is
+    the ratio of specific heats.
+    """
     F = np.zeros_like(W)
 
     rho = W[:,0]
@@ -46,9 +50,11 @@ def Flux(W, gamma):
 # W is the conserved variables [rho, rho*u, E] E = rho*e + 0.5*rho*u^2
 
 def U2W(U, gamma ):
-    # This function converts the primitive variables U = [rho, u, p] to the
-    # conserved variables W = [rho, rho*u, E] for a 2D array grid U, where gamma is
-    # the ratio of specific heats.
+    """
+    This function converts the primitive variables U = [rho, u, p] to the
+    conserved variables W = [rho, rho*u, E] for a 2D array grid U, where gamma is
+    the ratio of specific heats.
+    """
     W = np.zeros_like(U)
 
     for i in range(len(U)):
@@ -65,11 +71,12 @@ def U2W(U, gamma ):
     
     return W
 
-
 def W2U(W, gamma):
-    # This function converts the conserved variables W = [rho, rho*u, E] to the
-    # primitive variables U = [rho, u, p] for a 2D array W, where gamma is
-    # the ratio of specific heats.
+    """
+    This function converts the conserved variables W = [rho, rho*u, E] to the
+    primitive variables U = [rho, u, p] for a 2D array W, where gamma is
+    the ratio of specific heats.
+    """
     U = np.zeros_like(W)
 
     for i in range(len(W)):
@@ -90,28 +97,28 @@ def W2U(W, gamma):
     return U
 
 def lfx2_step(U_grid, dx, c, gamma = 1.4):
-    # This function performs a single temporal step of the Lax-Friedrichs scheme
-    # on a 2D array U_grid, with grid spacing dx, and Courant number c.
-    # The timestep is computed from the Courant number and the CFL condition
+    """
+     This function performs a single temporal step of the Lax-Friedrichs scheme
+     on a 2D array U_grid, with grid spacing dx, and Courant number c.
+     The timestep is computed from the Courant number and the CFL condition
 
-    # - U_grid is a 2D array of shape (n_samples, 3), where each row is a sample
-    # of the primitive variables [rho, u, p]
-    # - dx is the grid spacing
-    # - c is the Courant number
-    # - gamma is the ratio of specific heats c_p/c_v
+     - U_grid is a 2D array of shape (n_samples, 3), where each row is a sample
+     of the primitive variables [rho, u, p]
+     - dx is the grid spacing
+     - c is the Courant number
+     - gamma is the ratio of specific heats c_p/c_v
 
 
-    # U = [rho, u, p]
-    # W = [rho, rho*u, E]
-    # F = [rho*u, rho*u^2 + p, u*(E + p)]
-
+     - U = [rho, u, p]
+     - W = [rho, rho*u, E]
+     - F = [rho*u, rho*u^2 + p, u*(E + p)]
+  """
 
     n_samples = len(U_grid)
     # Add ghost cells to the left and right of the grid
     U_grid_gc = np.concatenate((U_grid[1].reshape(1, -1), U_grid, U_grid[-1].reshape(1, -1)), axis = 0)
 
     W_grid_gc = U2W(U_grid_gc, gamma = gamma)
-    a_grid_gc = np.zeros((n_samples + 2, 1))
     
     
     a_grid_gc = np.sqrt(gamma * U_grid_gc[:,2] / U_grid_gc[:,0]) # a = sqrt(gamma * p / rho)
@@ -127,8 +134,7 @@ def lfx2_step(U_grid, dx, c, gamma = 1.4):
     F_grid_gc = Flux(W_grid_gc, gamma = gamma)
     
     # Prediction step
-    W_half_p = np.zeros_like(U_grid)
-    W_half_m = np.zeros_like(U_grid)
+    
 
     # Compute the half-steps
     W_half_p = 0.5 * (W_grid_gc[2:] + W_grid_gc[1:-1]) - 0.5 * dt / dx * (F_grid_gc[2:] - F_grid_gc[1:-1])
@@ -140,7 +146,6 @@ def lfx2_step(U_grid, dx, c, gamma = 1.4):
 
     
     # Correction step
-    W_grid_dt = np.zeros_like(U_grid)
     W_grid_dt = (W_half_m + W_half_p)/2 - 0.5 *dt / dx * (F_half_p - F_half_m)
     
     # Convert the conserved variables back to the primitive variables
@@ -150,10 +155,11 @@ def lfx2_step(U_grid, dx, c, gamma = 1.4):
     
     return U_grid_dt, a_grid , dt
 
-
 def resize_array_mean(array, dt_array, T):
-    # Perform a heuristic to resize the array to store more timesteps
-    # Compute the mean of the timesteps until now
+    """
+    Perform a heuristic to resize the array to store more timesteps
+    Compute the mean of the timesteps until now
+    """
     mean_dt = np.mean(dt_array)
     # Compute the number of timesteps left to reach T
     n_steps_left = int(np.ceil((T - np.sum(dt_array)) / mean_dt))
@@ -163,20 +169,21 @@ def resize_array_mean(array, dt_array, T):
     return array
 
 def LFx2(U0, dx, c, T, gamma = 1.4):
-    # This function performs the Lax-Friedrichs scheme on a 2D array U0 of
-    # initial conditions, with grid spacing dx, Courant number c, and final time T.
-    # The scheme is run until the final time T is reached, and the solution is
-    # returned as a 3D array of shape (n_steps, n_samples, 3), where n_steps is the
-    # number of timesteps, and n_samples is the number of samples in U0.
-    # The primitive variables are [rho, u, p].
+    """
+    This function performs the Lax-Friedrichs scheme on a 2D array U0 of
+    initial conditions, with grid spacing dx, Courant number c, and final time T.
+    The scheme is run until the final time T is reached, and the solution is
+    returned as a 3D array of shape (n_steps, n_samples, 3), where n_steps is the
+    number of timesteps, and n_samples is the number of samples in U0.
+    The primitive variables are [rho, u, p].
 
-    # U0 is a 2D array of shape (n_samples, 3), where each row is a sample
-    #                               of the primitive variables [rho, u, p]
-    # dx is the grid spacing
-    # c is the Courant number
-    # T is the simulation time
-    # gamma is the ratio of specific heats c_p/c_v
-
+    - U0 is a 2D array of shape (n_samples, 3), where each row is a sample
+                                  of the primitive variables [rho, u, p]
+    - dx is the grid spacing
+    - c is the Courant number
+    - T is the simulation time
+    - gamma is the ratio of specific heats c_p/c_v
+    """
     U_grid = U0.copy()
     grid_samples = len(U_grid)
 

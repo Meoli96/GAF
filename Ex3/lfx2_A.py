@@ -40,11 +40,11 @@ def B(W, A, gamma):
     # Compute the mean pressure term
     p_mean = 0.5 * (p[1:] + p[:-1])
     # Now finite difference with the area term
-    B[:,1] = p_mean * (A[1:] - A[:-1])
+    B[:,1] = - p_mean * (A[1:] - A[:-1])
     
     return B
     
-def Flux(W, Ai, gamma):
+def Flux(W, A, gamma):
     # This function computes the flux vector F = [rho*u, rho*u^2 + p, u*(E + p)] for a 2D array W, where gamma is
     # the ratio of specific heats.
     F = np.zeros_like(W)
@@ -53,6 +53,7 @@ def Flux(W, Ai, gamma):
         rho = W[i,0]
         rho_u = W[i,1]
         E = W[i,2]
+        Ai = A[i]
 
         u = rho_u / rho
         p = (gamma - 1) * (E - 0.5 * rho * u ** 2)
@@ -110,7 +111,7 @@ def W2U(W, gamma):
     
     return U
 
-def lfx2_step(U_grid, dx, c, gamma = 1.4):
+def lfx2_step(U_grid, A_grid, dx, c, gamma = 1.4):
     # This function performs a single temporal step of the Lax-Friedrichs scheme
     # on a 2D array U_grid, with grid spacing dx, and Courant number c.
     # The timestep is computed from the Courant number and the CFL condition
@@ -130,7 +131,9 @@ def lfx2_step(U_grid, dx, c, gamma = 1.4):
     n_samples = len(U_grid)
     # Add ghost cells to the left and right of the grid
     U_grid_gc = np.concatenate((U_grid[1].reshape(1, -1), U_grid, U_grid[-1].reshape(1, -1)), axis = 0)
-
+    # Add ghost cells to the left and right of the grid of the area grid
+    A_grid_gc = np.concatenate((A_grid[1].reshape(1, -1), A_grid, A_grid[-1].reshape(1, -1)), axis = 0)
+    
     W_grid_gc = U2W(U_grid_gc, gamma = gamma)
     a_grid_gc = np.zeros((n_samples + 2, 1))
     
@@ -147,15 +150,22 @@ def lfx2_step(U_grid, dx, c, gamma = 1.4):
     # Compute the fluxes
     F_grid_gc = Flux(W_grid_gc, gamma = gamma)
     # Compute the source term
-    B_grid_gc = B(W_grid_gc, A, gamma = gamma)
+    B_grid = B(U2W(U_grid), A, gamma = gamma)
     
     # Prediction step
     W_half_p = np.zeros_like(U_grid)
     W_half_m = np.zeros_like(U_grid)
 
     # Compute the half-steps
-    W_half_p = 0.5 * (W_grid_gc[2:] + W_grid_gc[1:-1]) - 0.5 * dt / dx * (F_grid_gc[2:] - F_grid_gc[1:-1])
-    W_half_m = 0.5 * (W_grid_gc[1:-1] + W_grid_gc[:-2]) - 0.5 * dt / dx * (F_grid_gc[1:-1] - F_grid_gc[:-2])
+    W_half_p = 0.5 * (W_grid_gc[2:]*A_grid_gc[2:] + W_grid_gc[1:-1]*A_grid_gc[1:-1]) 
+    - 0.5 * dt / dx * (F_grid_gc[2:] - F_grid_gc[1:-1]) 
+    
+    W_half_m = 0.5 * (W_grid_gc[1:-1]*A_grid_gc[1:-1] + W_grid_gc[:-2]*A_grid_gc[:-2])
+    - 0.5 * dt / dx * (F_grid_gc[1:-1] - F_grid_gc[:-2])
+    
+    # Add the source term to the half-steps
+    W_half_p += 0.5*dt / dx * B_grid[1:-1]
+    W_half_m += 0.5*dt / dx * B_grid[0:-2]
 
     # Compute the fluxes at the half-steps
     F_half_p = Flux(W_half_p, gamma = gamma)
@@ -189,7 +199,7 @@ def resize_array_mean(array, dt_array, T):
 
     return array
 
-def LFx2(U0, dx, c, T, gamma = 1.4):
+def LFx2(U0, A, dx, c, T, gamma = 1.4):
     # This function performs the Lax-Friedrichs scheme on a 2D array U0 of
     # initial conditions, with grid spacing dx, Courant number c, and final time T.
     # The scheme is run until the final time T is reached, and the solution is
@@ -237,7 +247,7 @@ def LFx2(U0, dx, c, T, gamma = 1.4):
 
     # Simulation loop
     while (t_total < T):
-        U_grid, a_grid, dt = lfx2_step(U_grid, dx, c, gamma = gamma)
+        U_grid, a_grid, dt = lfx2_step(U_grid, A, dx, c, gamma = gamma)
         t_total += dt
         U_grid_result[step_counter] = U_grid
         a_grid_result[step_counter] = a_grid.reshape(-1, 1) # Fucking numpy 
