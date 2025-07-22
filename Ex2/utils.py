@@ -33,9 +33,9 @@ def plot_results(_x: np.ndarray, u_prop: np.ndarray, title: str = None, save: bo
     # Find a way to plot the intermediate configurations
     n_steps = u_prop.shape[0]
     for i in range (n_steps//10, n_steps, n_steps//10):
-        plt.plot(_x, u_prop[i,:], label="n="+str(i), linestyle="--", color="orange", alpha=0.5)
+        plt.plot(_x, u_prop[i,:], label="n="+str(i), linestyle="--", alpha=0.5)
     # Plot the final configuration
-    plt.plot(_x, u_prop[-1,:], label="n=" + str(n_steps), color="red")
+    plt.plot(_x, u_prop[-1,:], label="n=" + str(n_steps))
     if (title):
         plt.title(title)
     plt.ylabel("Amplitude")
@@ -52,7 +52,7 @@ class Result:
     # It is also responsible for computing L1 and TV norms, and plotting the results
     def __init__(self, _x:np.ndarray, u_prop:np.ndarray, c, title: str) -> None:
         self._x = _x
-        self.u_prop = u_prop
+        self.data = u_prop
         self.c = c
 
         if (c > 1):
@@ -64,7 +64,7 @@ class Result:
     
     def plot(self, save:bool = False):
         import matplotlib.pyplot as plt 
-        plot_results(self._x,  self.u_prop, self.title + " - c = " + str(self.c), save=save)
+        plot_results(self._x,  self.data, self.title + " - c = " + str(self.c), save=save)
         # Plot the L1 and TV norms
         plt.figure()
         plt.plot(self.L1, label="L1 norm")
@@ -80,17 +80,31 @@ class Result:
 
         fig, ax = plt.subplots()
         fig.suptitle(self.title)
-        line, = ax.plot(self._x, self.u_prop[0,:])
+        line, = ax.plot(self._x, self.data[0,:])
         ax.set_ylim(0, 3)
         ax.set_xlim(0, 10)
 
         def animate(i):
-            line.set_ydata(self.u_prop[i,:])
+            line.set_ydata(self.data[i,:])
             return line,
 
         ani = animation.FuncAnimation(
-            fig, animate, frames=self.u_prop.shape[0], interval=1/fps
+            fig, animate, frames=self.data.shape[0], interval=1/fps
         )
         return ani
 
         
+
+def get_invariants(rho, p, u, a, gamma):
+    """
+    This function computes the invariants of the system.
+    The invariants are:
+    - a - du
+    - a + du
+    where a is the speed of sound, du is the velocity perturbation and d = (gamma - 1)/2.
+
+    variable are a nxm array, where n is the length of the grid and m is the number of temporal steps.
+    """
+   
+    
+    return invariant1, invariant2

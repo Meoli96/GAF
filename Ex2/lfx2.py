@@ -207,6 +207,9 @@ def LFx2(U0, dx, c, T, gamma = 1.4):
     guessed_steps = int(np.ceil(T/dt))
     U_grid_result = np.zeros((guessed_steps, grid_samples, 3))
     a_grid_result = np.zeros((guessed_steps, grid_samples, 1))
+    a_grid_result[0] = a.reshape(-1, 1) # Store the initial speed of sound
+
+    # Initialize the a grid
     dt_array = np.zeros(guessed_steps)
 
     # Store the initial condition
