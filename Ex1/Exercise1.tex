@@ -506,15 +506,79 @@ In all the test cases, unless otherwise specified, the simulation is ran with th
 \begin{itemize}[label={}]
     \item x = [0,10]
     \item $\Delta x = 0.01$
+    \item c = 0.8
     \item $t_f$ = 5s
     \item $\gamma$ = 1.4
 \end{itemize}
 
 \subsection*{Contact discontinuity}
+The first test case is the contact discontinuity propagation, a wave phenomenon where the entropy perturbation propagates along the u direction.
+The phenomenon is described by the linear transport equation:
+\begin{equation*}
+    \rho_t + u \rho_x = 0
+\end{equation*}
+while pressure and velocity remain constant along the spatial and time domain.\\
+A top hat function is used as initial condition for the density, with a constant value for the velocity and pressure.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.3\textwidth]{Images/sample.jpg}
+    \includegraphics[width=0.3\textwidth]{Images/sample.jpg}
+    \includegraphics[width=0.3\textwidth]{Images/sample.jpg}
+    \caption{Initial condition for the contact discontinuity}
+    \label{fig:contact_discontinuity}
+\end{figure}
+By running the simulation, we observe the diffusion of the density distribution and the steadyness of the velocity and pressure values, as expected from the theory.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.3\textwidth]{Images/sample.jpg}
+    \includegraphics[width=0.3\textwidth]{Images/sample.jpg}
+    \includegraphics[width=0.3\textwidth]{Images/sample.jpg}
+    \caption{Results of the contact discontinuity simulation}
+    \label{fig:contact_discontinuity_results}
+\end{figure}
+It might be interesting to plot the entropy variation, defined as:
+\begin{equation*}
+    s = \frac{p}{\rho^\gamma}
+\end{equation*}
+We note that, if the pressure is constant, the entropy chhanges only according to the density variation. This entropy variation guarantees dissipation, and thus the 
+stability of the scheme.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\textwidth]{Images/sample.jpg}
+
+    \caption{Entropy variation for the contact discontinuity simulation}
+    \label{fig:contact_discontinuity_entropy}
+\end{figure}
+
 \subsection*{Expansion - Simple wave}
+The second test case regards the centered expansion. Lets take a piston that moves in a steady state fluid in a constant section duct,
+with velocity -$v_p$. The fluid will react to the piston movement by accelerating till the piston velocity,
+creating an omoentropic expansion wave.\\
+We will consider two different cases:
+\begin{itemize}
+    \item Subsonic expansion wave
+\end{itemize}
+The downstream velocity is lower than the speed of sound
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.3\textwidth]{Images/sample.jpg}
+    \caption{Subsonic expansion wave}
+    \label{fig:subsonic_expansion_wave}
+\end{figure}
+\begin{itemize}
+    \item Transonic expansion wave
+\end{itemize}
+The downstream velocity (absolute value) is higher than the speed of sound.\\
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.3\textwidth]{Images/sample.jpg}
+    \caption{Transonic expansion wave}
+    \label{fig:transonic_expansion_wave}
+\end{figure}
+
 \subsubsection{Subsonic expansion wave}
 The initial conditions for the subsonic expansion wave are:\\
-\begin{table*}[h]
+\begin{table}[H]
     \centering
     \begin{tabular}{|c|c|c|c|}
         \hline
@@ -524,9 +588,73 @@ The initial conditions for the subsonic expansion wave are:\\
         Behind & 0.585 & -0.8 & 0.295 \\ 
         \hline
     \end{tabular}
-\end{table*}
+\end{table}
 The propagation of the primitive variables is shown in the following figures:
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.3\textwidth]{Images/sample.jpg}
+    \includegraphics[width=0.3\textwidth]{Images/sample.jpg}
+    \includegraphics[width=0.3\textwidth]{Images/sample.jpg}
+    \caption{Subsonic expansion wave propagation}
+    \label{fig:subsonic_expansion_wave_results}
+\end{figure}
+We can note how as expected the velocity assumes a linear profile along the boundary of the expansion, with a support that grows in time.
+By plotting the invariants, the Riemman invariants and the entropy, we gather more informations on the numerical solution.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.3\textwidth]{Images/sample.jpg}
+    \includegraphics[width=0.3\textwidth]{Images/sample.jpg}
+    \caption{Riemman invariants  for the subsonic expansion wave}
+    \label{fig:subsonic_expansion_wave_invariants}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.3\textwidth]{Images/sample.jpg}
+    \caption{Entropy for the subsonic expansion wave}
+    \label{fig:subsonic_expansion_wave_entropy}
+\end{figure}
+We can observe that while the theory predicts $R_1 = a-\delta u$ = constant and the omoentropicness of the process, the simulation doesnt hold those statements true.
+Infact this conditions are not implicitly guaranteed by the numerical scheme, and the numerical dissipation introduces entropy variations, much larger as the expansion phenomenon becomes more intense.
+\subsubsection{Transonic expansion wave}
+The initial conditions for the transonic expansion wave are:\\
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|c|c|c|c|}
+        \hline
+        & $\rho$ & $u$ & $p$ \\
+        \hline
+        Ahead & 1.4 & 0.0 & 1 \\
+        Behind & 4.48*$10^{-4}$ & -4 & 1.28*$10^{-5}$\\ 
+        \hline
+    \end{tabular}
+\end{table}
+The propagation of the primitive variables is shown in the following figures:
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.3\textwidth]{Images/sample.jpg}
+    \includegraphics[width=0.3\textwidth]{Images/sample.jpg}
+    \includegraphics[width=0.3\textwidth]{Images/sample.jpg}
+    \caption{Transonic expansion wave propagation}
+    \label{fig:transonic_expansion_wave_results}
+\end{figure}
+We can note how we have irregularities in the solution on the left side of the expansion.
+Again plotting the invariants and the entropy we can see how the numerical dissipation affects the solution.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.3\textwidth]{Images/sample.jpg}
+    \includegraphics[width=0.3\textwidth]{Images/sample.jpg}
+    \caption{Riemman invariants for the transonic expansion wave}
+    \label{fig:transonic_expansion_wave_invariants}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.3\textwidth]{Images/sample.jpg}
+    \caption{Entropy for the transonic expansion wave}
+    \label{fig:transonic_expansion_wave_entropy}
+\end{figure}
+As for the subsonic case, in the transonic case the invariant $R_1$ and the entropy are not constant, with a much more pronounced variation. The local variations
+tend to attenuate as time goes on.
 
-\subsubsection*{Compression - Simple wave}
-\subsubsection*{Shock wave}
+
+\subsection*{Shock wave}
 \end{document}
